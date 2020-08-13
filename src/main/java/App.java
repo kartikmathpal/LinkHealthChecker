@@ -12,44 +12,40 @@ import javax.print.Doc;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.util.List;
 
 public class App {
     public static void main(String[] args) throws IOException {
-        FileInputStream inputFile = new FileInputStream("src/url_health_chk.xlsx");
+        FileInputStream inputFile = new FileInputStream("resources/url_health_chk.xlsx");
         XSSFWorkbook workbook = new XSSFWorkbook(inputFile);
         XSSFSheet sheet = workbook.getSheetAt(0);
         int size = sheet.getLastRowNum();
-
         //read from sheet
         System.out.println("Total Rows: " + size);
-        for (int i = 1; i <= size; i++) {
+        for (int i = 1; i <= size;) {
             try {
-                //Row row=sheet.getRow(i);
                 String url = sheet.getRow(i).getCell(0).getStringCellValue();
                 System.out.println(i + ". Processing URL " + url);
                 Document doc = Jsoup.connect(url).get();
                 sheet.getRow(i).getCell(1).setCellValue("200:OK");
-
                 Elements links = doc.select("a[href]");
-                if (checkForCanonicalURL(doc, url))
-                    sheet.getRow(i).getCell(2).setCellValue(true);
-                else
-                    sheet.getRow(i).getCell(2).setCellValue(false);
-
+                //canonical url
+                sheet.getRow(i).getCell(2).setCellValue(checkForCanonicalURL(doc, url));
+                //metatag check
+                sheet.getRow(i).getCell(3).setCellValue(metatags(doc,"noindex"));
+                sheet.getRow(i).getCell(4).setCellValue(metatags(doc,"nofollow"));
                 String result = "";
                 for (int j = 0; j < links.size(); j++) {
                     try {
                         result += checkURLHealth(links.get(j).attr("href"));
                     } catch (Exception e) {
-                        //System.out.println(links.get(i).attr("href")+" :: 400 FAIL");;
                         j++;
                     }
                 }
                 //write data to sheet
-                //System.out.println("Child Links : \n" + result);
-                sheet.getRow(i).getCell(3).setCellValue(result);
+                sheet.getRow(i).getCell(5).setCellValue(result);
+                i++;
             } catch (IOException io) {
-
                 sheet.getRow(i).getCell(1).setCellValue("Error");
                 io.printStackTrace();
                 i++;
@@ -59,11 +55,9 @@ public class App {
 
 
         //save data to sheet
-        FileOutputStream os = new FileOutputStream("src/url_health_chk.xlsx");
+        FileOutputStream os = new FileOutputStream("resources/url_health_chk.xlsx");
         workbook.write(os);
         System.out.println("Writing on XLSX file Finished ...");
-
-
         System.out.println("URL Health Check Complete\n\n");
 
     }
@@ -71,38 +65,26 @@ public class App {
     //captures all a[href's]
     public static String checkURLHealth(String url) {
         String result = "";
+        Connection.Response response = null;
         try {
-            Jsoup.connect(url).get(); //checks for URL
-            //we are getting a valid response after hitting the URL:
-            //System.out.println(url + " :: 200 OK \n\n");
+             Document d = Jsoup.connect(url).get(); //checks for URL
+             response = Jsoup.connect(url).execute();
             result += url + " :: 200 OK \n";
         } catch (Exception exception) {
-            //System.out.println(url+ ":: Broken Link");
-            //System.out.println(exception+"\n\n");
-            result += url + ":: Broken Link \n";
+            result += url + "::" +response.statusCode()+  "\n";
         }
         return result;
     }
 
-    public static boolean checkForCanonicalURL(Document doc, String parentURL) {
-        Element e = doc.select("link[rel=canonical]").first();
-        if (null != e)
-            System.out.println(e);
-        else
-            System.out.println("No canocial URL present in " + parentURL);
-
-        return e == null ? false : true;
+    public static String checkForCanonicalURL(Document doc, String parentURL) {
+        String cssQuery = "link[rel=canonical][href="+parentURL+"]";
+        return doc.select(cssQuery).first() == null ? "No Canonical URL Present" : parentURL;
     }
 
-    private static void print(String msg, Object... args) {
-        System.out.println(String.format(msg, args));
-    }
-
-    private static String trim(String s, int width) {
-        if (s.length() > width)
-            return s.substring(0, width - 1) + ".";
-        else
-            return s;
+    public static boolean metatags(Document doc, String meta){
+        String cssQuery="meta[content*="+meta+"]";
+        Elements e = doc.select(cssQuery);
+        return e.isEmpty()?false:true;
     }
 
 }
