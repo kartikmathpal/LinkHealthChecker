@@ -22,7 +22,7 @@ public class App {
         int size = sheet.getLastRowNum();
         //read from sheet
         System.out.println("Total Rows: " + size);
-        for (int i = 1; i <= size;) {
+        for (int i = 1; i <= size; ) {
             try {
                 String url = sheet.getRow(i).getCell(0).getStringCellValue();
                 System.out.println(i + ". Processing URL " + url);
@@ -32,8 +32,8 @@ public class App {
                 //canonical url
                 sheet.getRow(i).getCell(2).setCellValue(checkForCanonicalURL(doc, url));
                 //metatag check
-                sheet.getRow(i).getCell(3).setCellValue(metatags(doc,"noindex"));
-                sheet.getRow(i).getCell(4).setCellValue(metatags(doc,"nofollow"));
+                sheet.getRow(i).getCell(3).setCellValue(metatags(doc, "noindex"));
+                sheet.getRow(i).getCell(4).setCellValue(metatags(doc, "nofollow"));
                 String result = "";
                 for (int j = 0; j < links.size(); j++) {
                     try {
@@ -62,29 +62,40 @@ public class App {
 
     }
 
-    //captures all a[href's]
+    /*
+     *captures all a[href's]
+     * */
     public static String checkURLHealth(String url) {
         String result = "";
         Connection.Response response = null;
         try {
-             Document d = Jsoup.connect(url).get(); //checks for URL
-             response = Jsoup.connect(url).execute();
-            result += url + " :: 200 OK \n";
+            Document d = Jsoup.connect(url).get(); //checks for URL
+            response = Jsoup.connect(url).execute();
+            result += url + response.statusCode()+"\n";
         } catch (Exception exception) {
-            result += url + "::" +response.statusCode()+  "\n";
+            result += url + "::" + response.statusCode() + "\n";
         }
         return result;
     }
 
+    /*
+    *Canonical URL Check:
+    * */
     public static String checkForCanonicalURL(Document doc, String parentURL) {
-        String cssQuery = "link[rel=canonical][href="+parentURL+"]";
+        String cssQuery = "link[rel=canonical][href=" + parentURL + "]";
         return doc.select(cssQuery).first() == null ? "No Canonical URL Present" : parentURL;
+
     }
 
-    public static boolean metatags(Document doc, String meta){
-        String cssQuery="meta[content*="+meta+"]";
+    /*
+     * NOTE:
+     * noidex: tells search engines not to include your page(s) in search results.
+     * nofollow: tells search engines not to follow the links on your page.
+     * */
+    public static boolean metatags(Document doc, String meta) {
+        String cssQuery = "meta[content*=" + meta + "]";
         Elements e = doc.select(cssQuery);
-        return e.isEmpty()?false:true;
+        return e.isEmpty() ? false : true;
     }
 
 }
